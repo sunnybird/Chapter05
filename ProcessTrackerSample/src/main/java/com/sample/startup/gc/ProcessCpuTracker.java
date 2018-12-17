@@ -46,6 +46,8 @@ public class ProcessCpuTracker {
     }
 
     public void update() {
+         printCpu();
+        getCpuCore();
     }
 
 
@@ -57,5 +59,54 @@ public class ProcessCpuTracker {
         return "";
     }
 
+
+ private void printCpu() {
+        try {
+            File fileCpu = new File("/proc/stat");
+            FileReader fileReader = new FileReader(fileCpu);
+            BufferedReader br = new BufferedReader(fileReader);
+            String cpuInfo = br.readLine();
+            Log.d(TAG, "cpuInfo =" + cpuInfo);
+            String[] infos = cpuInfo.split("  ")[1].split(" ");
+
+            long user = Long.parseLong(infos[0]);
+            long nice = Long.parseLong(infos[1]);
+            long system = Long.parseLong(infos[2]);
+            long idle = Long.parseLong(infos[3]);
+            long iowait = Long.parseLong(infos[4]);
+            long irq = Long.parseLong(infos[5]);
+            long softirq = Long.parseLong(infos[6]);
+            long stealstolen = Long.parseLong(infos[7]);
+            long guest = Long.parseLong(infos[8]);
+
+            long totalCPUTime = user + nice + system + idle + iowait + irq + softirq + stealstolen + guest;
+
+            String precentCpu =
+                              String.format("%.2f", (float)user / totalCPUTime) + "%user "
+                            + String.format("%.2f", (float)system / totalCPUTime) + "%kernel "
+                            + String.format("%.2f", (float)iowait / totalCPUTime) + "%iowait "
+                            + String.format("%.2f", (float)irq / totalCPUTime) + "%irq "
+                            + String.format("%.2f", (float)softirq / totalCPUTime) + "%softirq ";
+
+            Log.d(TAG,"cpu info =" + precentCpu);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private int getCpuCore(){
+
+        try {
+            File fileCpu = new File("/proc/cpuinfo");
+            FileReader fileReader = new FileReader(fileCpu);
+            BufferedReader br = new BufferedReader(fileReader);
+            String cpuInfo = br.readLine();
+            Log.d(TAG, "cpu =" + cpuInfo);
+        }catch (Exception e){
+
+
+        }
+       return 0;
+    }
 
 }
