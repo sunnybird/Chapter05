@@ -2,6 +2,14 @@ package com.sample.startup.gc;
 
 
 import android.annotation.SuppressLint;
+import android.text.TextUtils;
+import android.util.Log;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 
 public class ProcessCpuTracker {
@@ -46,11 +54,10 @@ public class ProcessCpuTracker {
     }
 
     public void update() {
-         printCpu();
+        printCpu(0,0);
         getCpuCore();
+        getloadavg();
     }
-
-
 
 
     @SuppressLint("SimpleDateFormat")
@@ -60,15 +67,16 @@ public class ProcessCpuTracker {
     }
 
 
- private void printCpu() {
+    private void printCpu(int pid ,int tid) {
         try {
-            File fileCpu = new File("/proc/stat");
+
+            String filePath = "/proc/{}/{}/stat";
+            File fileCpu = new File(filePath);
             FileReader fileReader = new FileReader(fileCpu);
             BufferedReader br = new BufferedReader(fileReader);
             String cpuInfo = br.readLine();
             Log.d(TAG, "cpuInfo =" + cpuInfo);
             String[] infos = cpuInfo.split("  ")[1].split(" ");
-
             long user = Long.parseLong(infos[0]);
             long nice = Long.parseLong(infos[1]);
             long system = Long.parseLong(infos[2]);
@@ -82,31 +90,60 @@ public class ProcessCpuTracker {
             long totalCPUTime = user + nice + system + idle + iowait + irq + softirq + stealstolen + guest;
 
             String precentCpu =
-                              String.format("%.2f", (float)user / totalCPUTime) + "%user "
-                            + String.format("%.2f", (float)system / totalCPUTime) + "%kernel "
-                            + String.format("%.2f", (float)iowait / totalCPUTime) + "%iowait "
-                            + String.format("%.2f", (float)irq / totalCPUTime) + "%irq "
-                            + String.format("%.2f", (float)softirq / totalCPUTime) + "%softirq ";
+                    String.format("%.2f", (float) user / totalCPUTime) + "%user "
+                            + String.format("%.2f", (float) system / totalCPUTime) + "%kernel "
+                            + String.format("%.2f", (float) iowait / totalCPUTime) + "%iowait "
+                            + String.format("%.2f", (float) irq / totalCPUTime) + "%irq "
+                            + String.format("%.2f", (float) softirq / totalCPUTime) + "%softirq ";
 
-            Log.d(TAG,"cpu info =" + precentCpu);
+            Log.d(TAG, "cpu info =" + precentCpu);
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    private int getCpuCore(){
-
+    private int getCpuCore() {
+        int core = 0;
         try {
             File fileCpu = new File("/proc/cpuinfo");
             FileReader fileReader = new FileReader(fileCpu);
             BufferedReader br = new BufferedReader(fileReader);
-            String cpuInfo = br.readLine();
-            Log.d(TAG, "cpu =" + cpuInfo);
-        }catch (Exception e){
+            StringBuilder stringBuilder = new StringBuilder();
+            String line = null;
+            while ((line = br.readLine()) != null) {
+                stringBuilder.append(line);
+            }
+
+            String cupinfo = stringBuilder.toString().trim();
+            Pattern pattern = Pattern.compile("processor\t: [0-9]");
+            Matcher matcher = pattern.matcher(cupinfo);
+            while (matcher.find()) {
+                core++;
+            }
+
+            Log.d(TAG, "cpu core  =" + core);
+
+        } catch (Exception e) {
 
 
         }
-       return 0;
+        return core;
+    }
+
+    private String getloadavg() {
+
+        String loadavg = "";
+
+        try {
+            File fileCpu = new File("/proc/loadavg");
+            FileReader fileReader = new FileReader(fileCpu);
+            BufferedReader br = new BufferedReader(fileReader);
+            loadavg = br.readLine();
+        } catch (Exception e) {
+
+
+        }
+        return loadavg;
     }
 
 }
