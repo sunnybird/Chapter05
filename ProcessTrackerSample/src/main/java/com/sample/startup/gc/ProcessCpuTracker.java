@@ -2,19 +2,8 @@ package com.sample.startup.gc;
 
 
 import android.annotation.SuppressLint;
-<<<<<<< HEAD
 import android.os.Process;
 import android.util.Log;
-=======
-import android.text.TextUtils;
-import android.util.Log;
-
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
->>>>>>> ae80e8c974bb4bec1120546a8a108bfd91edd737
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -74,13 +63,6 @@ public class ProcessCpuTracker {
     }
 
     public void update() {
-<<<<<<< HEAD
-=======
-        printCpu(0,0);
-        getCpuCore();
-        getloadavg();
-    }
->>>>>>> ae80e8c974bb4bec1120546a8a108bfd91edd737
 
         StringBuilder stringBuilder = new StringBuilder();
 
@@ -109,7 +91,6 @@ public class ProcessCpuTracker {
         stringBuilder.append(processCpuInfo);
         stringBuilder.append("\n\n");
 
-<<<<<<< HEAD
         stringBuilder.append("Threads: ");
         stringBuilder.append("\n");
         String threadCpuInfo = printThreasCpuStst(mCurrentProcID, processCpuTotalTime);
@@ -120,8 +101,6 @@ public class ProcessCpuTracker {
     }
 
 
-=======
->>>>>>> ae80e8c974bb4bec1120546a8a108bfd91edd737
     @SuppressLint("SimpleDateFormat")
     final public String printCurrentState(long now) {
 
@@ -129,18 +108,11 @@ public class ProcessCpuTracker {
     }
 
 
-<<<<<<< HEAD
     private String printSysCpuStat() {
         String result = "";
 
         try {
             String filePath = "/proc/stat";
-=======
-    private void printCpu(int pid ,int tid) {
-        try {
-
-            String filePath = "/proc/{}/{}/stat";
->>>>>>> ae80e8c974bb4bec1120546a8a108bfd91edd737
             File fileCpu = new File(filePath);
             FileReader fileReader = new FileReader(fileCpu);
             BufferedReader br = new BufferedReader(fileReader);
@@ -199,7 +171,6 @@ public class ProcessCpuTracker {
             format.setMinimumFractionDigits(2);
 
             String precentCpu =
-<<<<<<< HEAD
                     format.format(processPrecent) + " " +
                             mCurrentProcID + "/" + status + ": " +
                             String.format("%.2f", (float) utime / processTotalTime) + "% user + "
@@ -210,15 +181,6 @@ public class ProcessCpuTracker {
             result = precentCpu;
             processCpuTotalTime = processTotalTime;
 
-=======
-                    String.format("%.2f", (float) user / totalCPUTime) + "%user "
-                            + String.format("%.2f", (float) system / totalCPUTime) + "%kernel "
-                            + String.format("%.2f", (float) iowait / totalCPUTime) + "%iowait "
-                            + String.format("%.2f", (float) irq / totalCPUTime) + "%irq "
-                            + String.format("%.2f", (float) softirq / totalCPUTime) + "%softirq ";
-
-            Log.d(TAG, "cpu info =" + precentCpu);
->>>>>>> ae80e8c974bb4bec1120546a8a108bfd91edd737
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -281,7 +243,6 @@ public class ProcessCpuTracker {
         return stringBuilder.toString();
     }
 
-<<<<<<< HEAD
     public static String getProcessName() {
         try {
             File file = new File("/proc/" + android.os.Process.myPid() + "/" + "cmdline");
@@ -295,8 +256,6 @@ public class ProcessCpuTracker {
         }
     }
 
-=======
->>>>>>> ae80e8c974bb4bec1120546a8a108bfd91edd737
     private int getCpuCore() {
         int core = 0;
         try {
