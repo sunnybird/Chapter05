@@ -2,16 +2,20 @@ package com.sample.startup.gc;
 
 
 import android.annotation.SuppressLint;
-import android.text.TextUtils;
+import android.os.Process;
 import android.util.Log;
 
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
+import java.text.NumberFormat;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 
+/**
+ * https://linux.die.net/man/5/proc
+ */
 public class ProcessCpuTracker {
     private static final String TAG = "ProcessCpuTracker";
 
@@ -21,6 +25,8 @@ public class ProcessCpuTracker {
     private static final int PROCESS_STATS_MAJOR_FAULTS = 11;
     private static final int PROCESS_STATS_UTIME = 13;
     private static final int PROCESS_STATS_STIME = 14;
+    private static final int PROCESS_STATS_CUTIME = 15;
+    private static final int PROCESS_STATS_CSTIME = 16;
 
     // /proc/self/sched
     private static final String NR_VOLUNTARY_SWITCHES = "nr_voluntary_switches";
@@ -46,6 +52,9 @@ public class ProcessCpuTracker {
     private final long mJiffyMillis;
     private int mCurrentProcID;
 
+    private long sysCpuTotalTime;
+    private long processCpuTotalTime;
+
 
     public ProcessCpuTracker(int id) {
         long jiffyHz = Sysconf.getScClkTck();
@@ -54,9 +63,41 @@ public class ProcessCpuTracker {
     }
 
     public void update() {
-        printCpu(0,0);
-        getCpuCore();
-        getloadavg();
+
+        StringBuilder stringBuilder = new StringBuilder();
+
+
+        stringBuilder.append("System TOTAL: ");
+        String sysCpuInfo = printSysCpuStat();
+        stringBuilder.append(sysCpuInfo);
+        stringBuilder.append("\n");
+
+        stringBuilder.append("CPU Core: ");
+        int cpucore = getCpuCore();
+        stringBuilder.append(cpucore);
+        stringBuilder.append("\n");
+
+        stringBuilder.append("Load Average: ");
+        String loadavg = getloadavg();
+        stringBuilder.append(loadavg);
+        stringBuilder.append("\n\n");
+
+        stringBuilder.append("Process: ");
+        String porcessName = getProcessName();
+        stringBuilder.append(porcessName);
+        stringBuilder.append("\n");
+
+        String processCpuInfo = printProcessCpuStat(mCurrentProcID, sysCpuTotalTime);
+        stringBuilder.append(processCpuInfo);
+        stringBuilder.append("\n\n");
+
+        stringBuilder.append("Threads: ");
+        stringBuilder.append("\n");
+        String threadCpuInfo = printThreasCpuStst(mCurrentProcID, processCpuTotalTime);
+        stringBuilder.append(threadCpuInfo);
+        String res = stringBuilder.toString();
+
+        Log.d(TAG,"info = "+ res);
     }
 
 
@@ -67,15 +108,15 @@ public class ProcessCpuTracker {
     }
 
 
-    private void printCpu(int pid ,int tid) {
-        try {
+    private String printSysCpuStat() {
+        String result = "";
 
-            String filePath = "/proc/{}/{}/stat";
+        try {
+            String filePath = "/proc/stat";
             File fileCpu = new File(filePath);
             FileReader fileReader = new FileReader(fileCpu);
             BufferedReader br = new BufferedReader(fileReader);
             String cpuInfo = br.readLine();
-            Log.d(TAG, "cpuInfo =" + cpuInfo);
             String[] infos = cpuInfo.split("  ")[1].split(" ");
             long user = Long.parseLong(infos[0]);
             long nice = Long.parseLong(infos[1]);
@@ -86,19 +127,132 @@ public class ProcessCpuTracker {
             long softirq = Long.parseLong(infos[6]);
             long stealstolen = Long.parseLong(infos[7]);
             long guest = Long.parseLong(infos[8]);
-
             long totalCPUTime = user + nice + system + idle + iowait + irq + softirq + stealstolen + guest;
-
             String precentCpu =
-                    String.format("%.2f", (float) user / totalCPUTime) + "%user "
-                            + String.format("%.2f", (float) system / totalCPUTime) + "%kernel "
-                            + String.format("%.2f", (float) iowait / totalCPUTime) + "%iowait "
-                            + String.format("%.2f", (float) irq / totalCPUTime) + "%irq "
-                            + String.format("%.2f", (float) softirq / totalCPUTime) + "%softirq ";
+                    String.format("%.2f", (float) user / totalCPUTime) + "% user +"
+                            + String.format("%.2f", (float) system / totalCPUTime) + "% kernel + "
+                            + String.format("%.2f", (float) iowait / totalCPUTime) + "% iowait + "
+                            + String.format("%.2f", (float) irq / totalCPUTime) + "% irq + "
+                            + String.format("%.2f", (float) softirq / totalCPUTime) + "% softirq + "
+                            + String.format("%.2f", (float) idle / totalCPUTime) + "% idle "
+                    ;
 
-            Log.d(TAG, "cpu info =" + precentCpu);
+            result = precentCpu;
+
+            sysCpuTotalTime = totalCPUTime;
         } catch (Exception e) {
             e.printStackTrace();
+        }
+        return result;
+    }
+
+    private String printProcessCpuStat(long pid, long cpuTotalTime) {
+        String result = "";
+
+        try {
+            String filePath = "/proc/" + pid + "/stat";
+            File fileCpu = new File(filePath);
+            FileReader fileReader = new FileReader(fileCpu);
+            BufferedReader br = new BufferedReader(fileReader);
+            String cpuInfo = br.readLine();
+            String[] infos = cpuInfo.split(" ");
+
+            long utime = Long.parseLong(infos[PROCESS_STATS_UTIME - 1]);
+            long stime = Long.parseLong(infos[PROCESS_STATS_STIME - 1]);
+            long cstime = Long.parseLong(infos[PROCESS_STATS_CSTIME - 1]);
+            long cutime = Long.parseLong(infos[PROCESS_STATS_CUTIME - 1]);
+
+            long major_faults = Long.parseLong(infos[PROCESS_STATS_MAJOR_FAULTS - 1]);
+            long minor_faults = Long.parseLong(infos[PROCESS_STATS_MINOR_FAULTS - 1]);
+            String status = infos[PROCESS_STATS_STATUS - 1] + infos[PROCESS_STATS_STATUS];
+            long processTotalTime = utime + stime + cstime + cutime;
+            double processPrecent = processTotalTime * 1.00 / cpuTotalTime;
+            NumberFormat format = NumberFormat.getPercentInstance();
+            format.setMinimumFractionDigits(2);
+
+            String precentCpu =
+                    format.format(processPrecent) + " " +
+                            mCurrentProcID + "/" + status + ": " +
+                            String.format("%.2f", (float) utime / processTotalTime) + "% user + "
+                            + String.format("%.2f", (float) stime / processTotalTime) + "% kernel + "
+                            + String.format("faults：%d", major_faults + minor_faults);
+
+
+            result = precentCpu;
+            processCpuTotalTime = processTotalTime;
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return result;
+    }
+
+    private String printThreasCpuStst(long pid, long processTotalTime) {
+
+        StringBuilder stringBuilder = new StringBuilder();
+
+        String filePath = "/proc/" + pid + "/task";
+        File fileTask = new File(filePath);
+        File[] files = fileTask.listFiles();
+        for (File file : files) {
+
+            try {
+                String fileStatPath = file.getAbsolutePath() + "/stat";
+                File fileCpu = new File(fileStatPath);
+                FileReader fileReader = new FileReader(fileCpu);
+                BufferedReader br = new BufferedReader(fileReader);
+                String cpuInfo = br.readLine();
+                String[] infos = cpuInfo.split(" ");
+
+                long utime = Long.parseLong(infos[PROCESS_STATS_UTIME - 1]);
+                long stime = Long.parseLong(infos[PROCESS_STATS_STIME - 1]);
+                long cstime = Long.parseLong(infos[PROCESS_STATS_CSTIME - 1]);
+                long cutime = Long.parseLong(infos[PROCESS_STATS_CUTIME - 1]);
+
+                long major_faults = Long.parseLong(infos[PROCESS_STATS_MAJOR_FAULTS - 1]);
+                long minor_faults = Long.parseLong(infos[PROCESS_STATS_MINOR_FAULTS - 1]);
+                String status = infos[PROCESS_STATS_STATUS - 1] + infos[PROCESS_STATS_STATUS];
+                long threadTotalTime = utime + stime + cstime + cutime;
+
+                double processPrecent = threadTotalTime * 1.00 / processTotalTime;
+                NumberFormat format = NumberFormat.getPercentInstance();
+                format.setMinimumFractionDigits(2);
+
+                if (threadTotalTime > 0) {
+                    String precentCpu =
+                            format.format(processPrecent) + " " +
+                                    pid + "/" + status + ": " +
+                                    String.format("%.2f", (float) utime / threadTotalTime) + "% user + "
+                                    + String.format("%.2f", (float) stime / threadTotalTime) + "% kernel "
+                                    + String.format("faults：%d", major_faults + minor_faults);
+
+
+//                    Log.d(TAG, "thread cpu info =" + precentCpu);
+
+                    stringBuilder.append(precentCpu);
+                    stringBuilder.append("\n");
+                }
+
+            } catch (Exception e) {
+
+            }
+        }
+
+
+        return stringBuilder.toString();
+    }
+
+    public static String getProcessName() {
+        try {
+            File file = new File("/proc/" + android.os.Process.myPid() + "/" + "cmdline");
+            BufferedReader mBufferedReader = new BufferedReader(new FileReader(file));
+            String processName = mBufferedReader.readLine().trim();
+            mBufferedReader.close();
+            return processName;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
         }
     }
 
